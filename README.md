@@ -66,8 +66,8 @@ En la consola de **Cortex XDR**:
 1. Ve al menú de configuración: **Settings (⚙️) → Configurations → Integrations → API Keys**.
 2. Haz clic en **+ New Key**.
 3. Elige el tipo de key:
-   - **Standard** (recomendado para empezar), o
-   - **Advanced** (requiere un paso extra de configuración, ver nota abajo).
+   - **Advanced** ✅ **(recomendado, por seguridad)** — cada petición se firma con un *nonce* + *timestamp* y un hash SHA-256, de modo que la API Key **nunca viaja en texto plano** y se protege contra ataques de *replay*.
+   - **Standard** — envía la key directamente en el header. Úsala solo si no puedes usar Advanced.
 4. Asigna un **Role** con los permisos que necesites y guarda.
 5. Cortex te mostrará **la API Key (secreto)** — cópiala ahora, **solo se muestra una vez**.
 6. En la tabla de API Keys, anota el **ID** de la key (un número, p. ej. `1`, `6`, …).
@@ -86,8 +86,9 @@ En resumen, del Paso 3 sacas **tres datos**:
 | URL base del tenant | `CORTEX_MCP_PAPI_URL` | `https://api-<tu-tenant>.xdr.us.paloaltonetworks.com` |
 | ID de la API Key | `CORTEX_MCP_PAPI_AUTH_ID` | `1` |
 | API Key (secreto) | `CORTEX_MCP_PAPI_AUTH_HEADER` | `xxxxxxxx…` |
+| Tipo de key | `CORTEX_MCP_AUTH_TYPE` | `advanced` (recomendado) |
 
-> **Nota (Advanced API keys):** si creaste una key **Advanced**, añade también la variable `CORTEX_MCP_AUTH_TYPE=advanced`. Con keys **Standard** no hace falta (el valor por defecto es `standard`).
+> **Recomendación de seguridad:** usa siempre una key **Advanced** y configura `CORTEX_MCP_AUTH_TYPE=advanced`. Solo si usas una key **Standard** cambia este valor a `standard`.
 
 ---
 
@@ -104,6 +105,7 @@ claude mcp add cortex-xdr \
   --env CORTEX_MCP_PAPI_URL=https://api-<tu-tenant>.xdr.us.paloaltonetworks.com \
   --env CORTEX_MCP_PAPI_AUTH_ID=<tu_api_key_id> \
   --env CORTEX_MCP_PAPI_AUTH_HEADER=<tu_api_key> \
+  --env CORTEX_MCP_AUTH_TYPE=advanced \
   --env MCP_TRANSPORT=stdio \
   -- <ruta-al-repo>/.venv/bin/python <ruta-al-repo>/src/main.py
 ```
@@ -123,6 +125,7 @@ Añade este bloque a tu configuración MCP (el `.mcp.json` del proyecto, o la co
         "CORTEX_MCP_PAPI_URL": "https://api-<tu-tenant>.xdr.us.paloaltonetworks.com",
         "CORTEX_MCP_PAPI_AUTH_ID": "<tu_api_key_id>",
         "CORTEX_MCP_PAPI_AUTH_HEADER": "<tu_api_key>",
+        "CORTEX_MCP_AUTH_TYPE": "advanced",
         "MCP_TRANSPORT": "stdio"
       }
     }
@@ -160,13 +163,13 @@ Quiero que instales y configures este MCP de Cortex XDR (estás en la raíz del 
    - URL base del tenant, formato https://api-<tenant>.xdr.<region>.paloaltonetworks.com
    - API Key ID (el número de la key)
    - API Key (el secreto)
-   Y pregúntame si mi key es "Standard" o "Advanced".
+   Recomiéndame usar una key "Advanced" por seguridad; asume Advanced salvo que te diga explícitamente que es Standard.
 4. Registra el servidor MCP llamado "cortex-xdr" con `claude mcp add`, donde:
    - command = el python del .venv que creaste
    - args = <ruta-al-repo>/src/main.py
    - cwd = la raíz del repo
-   - env = CORTEX_MCP_PAPI_URL, CORTEX_MCP_PAPI_AUTH_ID, CORTEX_MCP_PAPI_AUTH_HEADER y MCP_TRANSPORT=stdio.
-   - Si mi key es Advanced, añade además CORTEX_MCP_AUTH_TYPE=advanced.
+   - env = CORTEX_MCP_PAPI_URL, CORTEX_MCP_PAPI_AUTH_ID, CORTEX_MCP_PAPI_AUTH_HEADER, CORTEX_MCP_AUTH_TYPE=advanced y MCP_TRANSPORT=stdio.
+   - Si te confirmo que mi key es Standard, usa CORTEX_MCP_AUTH_TYPE=standard.
 5. Verifica con /mcp que "cortex-xdr" quede como connected y lístame las tools disponibles.
 
 Reglas: nunca muestres ni subas mi API Key en texto plano fuera de la configuración local del MCP. Si algo falla, muéstrame el error exacto y cómo corregirlo.
@@ -192,7 +195,7 @@ Para que se vean las tools *custom*, el servidor debe arrancarse **desde el dire
 |--------|----------------|----------|
 | `cortex-xdr` no aparece en `/mcp` | Ruta de `command`/`args` incorrecta | Verifica que apunten al `python` del `.venv` y a `src/main.py` (rutas absolutas). |
 | Conecta pero solo se ven tools builtin | Falta `cwd` | Añade `cwd` con la raíz del repo (Paso 4). |
-| Error 401 / 403 en las llamadas | Credenciales o tipo de key | Revisa `CORTEX_MCP_PAPI_AUTH_ID` y `..._AUTH_HEADER`; si la key es Advanced, añade `CORTEX_MCP_AUTH_TYPE=advanced`. |
+| Error 401 / 403 en las llamadas | Credenciales o tipo de key mal | Revisa `CORTEX_MCP_PAPI_AUTH_ID` y `..._AUTH_HEADER`, y que `CORTEX_MCP_AUTH_TYPE` coincida con el tipo real de tu key (`advanced` o `standard`). |
 | Error de conexión / DNS | URL base mal formada | Debe empezar con `https://api-` y terminar en `.paloaltonetworks.com`. |
 | `No OpenAPI spec or paths loaded` en logs | No arrancó desde el repo | Revisa `cwd`. |
 
