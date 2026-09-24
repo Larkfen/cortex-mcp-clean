@@ -177,6 +177,34 @@ Reglas: nunca muestres ni subas mi API Key en texto plano fuera de la configurac
 
 ---
 
+## 🧠 Skill incluida — investigación + dashboard
+
+El repo trae un **skill de Claude Code** en [`.claude/skills/cortex-xdr-triage/`](.claude/skills/cortex-xdr-triage/SKILL.md) que le enseña a Claude **cómo usar el MCP bien y con pocos tokens**, sin tener que explicárselo cada vez.
+
+Con el skill activo, puedes pedir en lenguaje natural cosas como *"revisa los casos abiertos y dime qué requiere atención"* y Claude:
+
+1. Lista y **prioriza** los incidentes/casos abiertos (por score y severidad).
+2. Investiga cada caso prioritario: **usuario**, **equipo/host**, **qué lo gatilló**, **qué ha pasado** (timeline + MITRE ATT&CK) y **cómo mitigarlo** (con las tools reales).
+3. Si lo pides, genera un **dashboard SOC oscuro** (Artifact) estilo consola de Palo Alto, usando la plantilla incluida en `assets/`.
+
+> **Guardas de seguridad del skill:** las tools de lectura corren libres; cualquier acción de contención o cambio (aislar, bloquear, cuarentena, cerrar casos) **se confirma contigo antes de ejecutarse**.
+
+### Cómo activar el skill
+
+- **Dentro del repo:** al abrir Claude Code en esta carpeta, el skill se detecta automáticamente (`.claude/skills/`).
+- **Para usarlo en cualquier proyecto:** copia la carpeta a tu config de usuario:
+
+```bash
+# Linux/macOS
+cp -r .claude/skills/cortex-xdr-triage ~/.claude/skills/
+```
+```powershell
+# Windows
+Copy-Item -Recurse .claude\skills\cortex-xdr-triage "$env:USERPROFILE\.claude\skills\"
+```
+
+> **Prompt vs Skill:** el [prompt de instalación](#-prompt-para-que-claude-code-lo-instale-por-ti) sirve para **dejar el MCP funcionando**; el **skill** es para **usarlo** (investigar y generar dashboards). Son complementarios.
+
 ## 🧰 Tools que expone este MCP
 
 El servidor une automáticamente las especificaciones OpenAPI de:

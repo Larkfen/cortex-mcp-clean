@@ -1,0 +1,466 @@
+<title>SOC Triage Console</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
+<style>
+  /* ---------- Dark-first token system ---------- */
+  :root {
+    --bg:            #0a0e16;
+    --bg-grid:       rgba(255,255,255,.02);
+    --surface:       #111725;
+    --surface-2:     #161e30;
+    --surface-3:     #1c2740;
+    --border:        #26314a;
+    --border-soft:   #1d2740;
+    --text:          #e7ecf7;
+    --text-muted:    #93a1bf;
+    --text-dim:      #64708c;
+    --accent:        #4f8cff;
+    --accent-soft:   rgba(79,140,255,.14);
+    --crit:          #ff4d61;
+    --crit-soft:     rgba(255,77,97,.14);
+    --high:          #ff9a3d;
+    --high-soft:     rgba(255,154,61,.14);
+    --med:           #ffd24d;
+    --med-soft:      rgba(255,210,77,.13);
+    --low:           #35d29a;
+    --low-soft:      rgba(53,210,154,.14);
+    --shadow:        0 10px 30px -12px rgba(0,0,0,.7);
+    --radius:        14px;
+  }
+  /* Light theme: only when OS asks for light and the user hasn't forced dark */
+  @media (prefers-color-scheme: light) {
+    :root:not([data-theme="dark"]) {
+      --bg:          #eef1f7;
+      --bg-grid:     rgba(0,0,0,.02);
+      --surface:     #ffffff;
+      --surface-2:   #f5f7fc;
+      --surface-3:   #eaeef7;
+      --border:      #d6dcea;
+      --border-soft: #e3e8f2;
+      --text:        #131a2b;
+      --text-muted:  #4f5c76;
+      --text-dim:    #7a869e;
+      --accent:      #2f6bf0;
+      --accent-soft: rgba(47,107,240,.10);
+      --crit-soft:   rgba(255,77,97,.10);
+      --high-soft:   rgba(255,154,61,.12);
+      --med-soft:    rgba(214,163,0,.12);
+      --low-soft:    rgba(53,210,154,.12);
+      --shadow:      0 10px 26px -14px rgba(20,30,60,.28);
+    }
+  }
+  /* Explicit light toggle wins in both directions */
+  :root[data-theme="light"] {
+    --bg:          #eef1f7;
+    --bg-grid:     rgba(0,0,0,.02);
+    --surface:     #ffffff;
+    --surface-2:   #f5f7fc;
+    --surface-3:   #eaeef7;
+    --border:      #d6dcea;
+    --border-soft: #e3e8f2;
+    --text:        #131a2b;
+    --text-muted:  #4f5c76;
+    --text-dim:    #7a869e;
+    --accent:      #2f6bf0;
+    --accent-soft: rgba(47,107,240,.10);
+    --crit-soft:   rgba(255,77,97,.10);
+    --high-soft:   rgba(255,154,61,.12);
+    --med-soft:    rgba(214,163,0,.12);
+    --low-soft:    rgba(53,210,154,.12);
+    --shadow:      0 10px 26px -14px rgba(20,30,60,.28);
+  }
+
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background:
+      radial-gradient(1200px 600px at 80% -10%, rgba(79,140,255,.06), transparent 60%),
+      linear-gradient(var(--bg-grid) 1px, transparent 1px) 0 0/100% 40px,
+      var(--bg);
+    color: var(--text);
+    font-family: "IBM Plex Sans", system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1180px; margin: 0 auto; padding-inline: 20px; padding-block: 26px 60px; }
+
+  /* ---------- Top bar ---------- */
+  .topbar { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 24px; }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand .mark {
+    width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center;
+    background: linear-gradient(145deg, var(--accent), #7db0ff); color: #06101f; font-size: 21px;
+    box-shadow: 0 6px 18px -6px rgba(79,140,255,.6);
+  }
+  .brand h1 {
+    font-family: "Chakra Petch", sans-serif; font-weight: 700; letter-spacing: .02em;
+    font-size: 20px; margin: 0; line-height: 1.1;
+  }
+  .brand .sub { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); letter-spacing: .04em; text-transform: uppercase; }
+  .topbar .spacer { flex: 1 1 auto; }
+  .meta-chip {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--text-muted);
+    background: var(--surface); border: 1px solid var(--border-soft); border-radius: 999px;
+    padding: 7px 13px; display: inline-flex; align-items: center; gap: 7px;
+  }
+  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--low); box-shadow: 0 0 0 3px var(--low-soft); }
+  .toggle {
+    appearance: none; cursor: pointer; border: 1px solid var(--border); background: var(--surface);
+    color: var(--text-muted); border-radius: 10px; width: 40px; height: 38px; font-size: 16px;
+    display: grid; place-items: center; transition: .15s;
+  }
+  .toggle:hover { color: var(--text); border-color: var(--accent); }
+
+  /* ---------- KPI row ---------- */
+  .kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 12px; }
+  .kpi {
+    background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius);
+    padding: 16px 18px; position: relative; overflow: hidden;
+  }
+  .kpi::before { content:""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--k, var(--accent)); }
+  .kpi .n { font-family: "Chakra Petch", sans-serif; font-weight: 700; font-size: 34px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .kpi .l { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); margin-top: 8px; }
+  .kpi.k-crit { --k: var(--crit); } .kpi.k-high { --k: var(--high); }
+  .kpi.k-med { --k: var(--med); } .kpi.k-inv { --k: var(--accent); }
+
+  /* ---------- Filter bar ---------- */
+  .filters { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 22px 0 16px; }
+  .filters .flabel { font-size: 11.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); margin-right: 4px; }
+  .chip {
+    appearance: none; cursor: pointer; font-family: "IBM Plex Sans", sans-serif; font-size: 12.5px; font-weight: 600;
+    border: 1px solid var(--border); background: var(--surface); color: var(--text-muted);
+    border-radius: 999px; padding: 7px 14px; transition: .15s;
+  }
+  .chip:hover { color: var(--text); }
+  .chip[aria-pressed="true"] { background: var(--accent-soft); border-color: var(--accent); color: var(--text); }
+
+  /* ---------- Incident cards ---------- */
+  .list { display: flex; flex-direction: column; gap: 16px; }
+  .card {
+    background: var(--surface); border: 1px solid var(--border-soft); border-radius: var(--radius);
+    box-shadow: var(--shadow); overflow: hidden; position: relative;
+    border-left: 4px solid var(--sev, var(--accent));
+  }
+  .card.sev-critical { --sev: var(--crit); } .card.sev-high { --sev: var(--high); }
+  .card.sev-medium { --sev: var(--med); } .card.sev-low { --sev: var(--low); }
+  .card-head { padding: 18px 20px 0; }
+  .idrow { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .iid { font-family: "IBM Plex Mono", monospace; font-size: 12px; color: var(--text-dim); letter-spacing: .03em; }
+  .updated { font-family: "IBM Plex Mono", monospace; font-size: 11px; color: var(--text-dim); }
+  .title { display: flex; align-items: center; gap: 10px; margin: 8px 0 12px; }
+  .title h2 { font-size: 18px; font-weight: 700; margin: 0; letter-spacing: -.01em; text-wrap: balance; }
+  .title .ic { font-size: 18px; }
+  .badges { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+  .badge {
+    font-size: 11px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase;
+    padding: 4px 10px; border-radius: 6px; display: inline-flex; align-items: center; gap: 6px;
+    font-family: "IBM Plex Mono", monospace;
+  }
+  .b-critical { background: var(--crit-soft); color: var(--crit); }
+  .b-high { background: var(--high-soft); color: var(--high); }
+  .b-medium { background: var(--med-soft); color: var(--med); }
+  .b-status { background: var(--accent-soft); color: var(--accent); }
+  .b-assigned { background: var(--low-soft); color: var(--low); }
+  .b-unassigned { background: var(--crit-soft); color: var(--crit); }
+  .desc { color: var(--text-muted); font-size: 14px; padding: 0 20px; margin: 0 0 16px; max-width: 78ch; }
+
+  /* stat tiles */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 1px; background: var(--border-soft);
+    border-top: 1px solid var(--border-soft); border-bottom: 1px solid var(--border-soft); }
+  .stat { background: var(--surface); padding: 14px 18px; text-align: center; }
+  .stat .v { font-family: "Chakra Petch", sans-serif; font-weight: 700; font-size: 26px; line-height: 1; font-variant-numeric: tabular-nums; }
+  .stat .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-dim); margin-top: 6px; }
+  .stat .v.score-crit { color: var(--crit); } .stat .v.score-high { color: var(--high); } .stat .v.score-med { color: var(--med); }
+
+  /* mitre chips */
+  .mitre { padding: 16px 20px; }
+  .mitre .h { font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--text-dim); margin-bottom: 9px; }
+  .tactics { display: flex; flex-wrap: wrap; gap: 7px; }
+  .tactic {
+    font-family: "IBM Plex Mono", monospace; font-size: 11.5px; color: var(--text-muted);
+    background: var(--surface-2); border: 1px solid var(--border-soft); border-radius: 6px; padding: 4px 9px;
+  }
+  .tactic b { color: var(--accent); font-weight: 600; }
+
+  /* analysis (Claude output) */
+  .analysis { border-top: 1px dashed var(--border); background: var(--surface-2); }
+  .an-head {
+    width: 100%; text-align: left; cursor: pointer; appearance: none; border: 0; background: transparent;
+    color: var(--text); font-family: "IBM Plex Sans", sans-serif; font-weight: 600; font-size: 13.5px;
+    padding: 13px 20px; display: flex; align-items: center; gap: 10px;
+  }
+  .an-head .ai { font-family:"IBM Plex Mono",monospace; font-size: 10px; letter-spacing:.08em; text-transform: uppercase;
+    color: var(--accent); background: var(--accent-soft); padding: 3px 8px; border-radius: 5px; }
+  .an-head .caret { margin-left: auto; color: var(--text-dim); transition: transform .2s; }
+  .an-head[aria-expanded="true"] .caret { transform: rotate(180deg); }
+  .an-body { padding: 4px 20px 20px; display: grid; gap: 14px; }
+  .an-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
+  .fact { background: var(--surface); border: 1px solid var(--border-soft); border-radius: 10px; padding: 12px 14px; }
+  .fact .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); margin-bottom: 5px; display:flex; align-items:center; gap:6px; }
+  .fact .val { font-size: 13.5px; color: var(--text); }
+  .fact .val code { font-family: "IBM Plex Mono", monospace; font-size: 12.5px; background: var(--surface-3); padding: 1px 6px; border-radius: 5px; color: var(--text); }
+  .block .k { font-size: 10.5px; text-transform: uppercase; letter-spacing: .06em; color: var(--text-dim); margin-bottom: 6px; }
+  .block p { margin: 0; font-size: 13.5px; color: var(--text-muted); }
+  .mit { border-left: 3px solid var(--low); background: var(--low-soft); border-radius: 0 10px 10px 0; padding: 12px 14px; }
+  .mit .k { color: var(--low); }
+  .mit ol { margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--text); }
+  .mit li { margin: 4px 0; }
+  .mit code { font-family: "IBM Plex Mono", monospace; font-size: 12px; background: var(--surface-3); padding: 1px 6px; border-radius: 5px; }
+
+  /* actions */
+  .actions { display: flex; gap: 10px; flex-wrap: wrap; padding: 0 20px 18px; }
+  .btn {
+    appearance: none; cursor: pointer; font-family: "IBM Plex Sans", sans-serif; font-weight: 600; font-size: 13px;
+    border-radius: 9px; padding: 9px 15px; display: inline-flex; align-items: center; gap: 7px; transition: .15s; border: 1px solid transparent;
+  }
+  .btn-primary { background: var(--accent); color: #06101f; }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-ghost { background: transparent; border-color: var(--border); color: var(--text-muted); }
+  .btn-ghost:hover { color: var(--text); border-color: var(--accent); }
+
+  .footnote { margin-top: 30px; font-size: 12px; color: var(--text-dim); text-align: center; line-height: 1.7; }
+  .footnote code { font-family: "IBM Plex Mono", monospace; background: var(--surface); padding: 1px 6px; border-radius: 5px; border: 1px solid var(--border-soft); }
+
+  .card.hide { display: none; }
+
+  @media (max-width: 720px) {
+    .kpis { grid-template-columns: repeat(2, 1fr); }
+    .an-grid { grid-template-columns: 1fr; }
+    .idrow { flex-direction: column; gap: 2px; }
+  }
+  @media (max-width: 460px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+
+<div class="wrap">
+  <header class="topbar">
+    <div class="brand">
+      <div class="mark">🛡️</div>
+      <div>
+        <h1>SOC Triage Console</h1>
+        <div class="sub">Cortex XDR · via MCP</div>
+      </div>
+    </div>
+    <div class="spacer"></div>
+    <span class="meta-chip"><span class="dot"></span> Tenant conectado</span>
+    <span class="meta-chip" id="ts">Actualizado —</span>
+    <button class="toggle" id="themeBtn" title="Cambiar tema" aria-label="Cambiar tema">◐</button>
+  </header>
+
+  <section class="kpis" aria-label="Resumen">
+    <div class="kpi k-crit"><div class="n">1</div><div class="l">Casos críticos</div></div>
+    <div class="kpi k-high"><div class="n">3</div><div class="l">Severidad alta</div></div>
+    <div class="kpi k-med"><div class="n">8</div><div class="l">Severidad media</div></div>
+    <div class="kpi k-inv"><div class="n">2</div><div class="l">En investigación</div></div>
+  </section>
+
+  <div class="filters">
+    <span class="flabel">Filtrar</span>
+    <button class="chip" aria-pressed="true"  data-f="all">Todos</button>
+    <button class="chip" aria-pressed="false" data-f="critical">Críticos</button>
+    <button class="chip" aria-pressed="false" data-f="high">Altos</button>
+    <button class="chip" aria-pressed="false" data-f="medium">Medios</button>
+    <button class="chip" aria-pressed="false" data-f="unassigned">Sin asignar</button>
+  </div>
+
+  <main class="list" id="list"><!-- cards injected --></main>
+
+  <p class="footnote">
+    Datos de ejemplo (dataset demo de Palo Alto) para demostración.<br>
+    Generado por Claude con las tools del MCP: <code>get_incidents</code> · <code>get_incident_details</code> · <code>get_alerts</code> · <code>get_endpoint_details</code> · <code>build_incident_timeline</code> · <code>xql_run_query</code>
+  </p>
+</div>
+
+<script>
+  // ---- timestamp ----
+  try {
+    var d = new Date();
+    document.getElementById('ts').textContent = 'Actualizado ' +
+      d.toLocaleDateString('es-CL',{day:'2-digit',month:'short'}) + ' ' +
+      d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'});
+  } catch(e){}
+
+  // ---- theme toggle (dark-first) ----
+  (function(){
+    var root = document.documentElement, btn = document.getElementById('themeBtn');
+    var saved; try { saved = localStorage.getItem('soc-theme'); } catch(e){}
+    if (saved) root.setAttribute('data-theme', saved);
+    btn.addEventListener('click', function(){
+      var isLight = getComputedStyle(root).getPropertyValue('--bg').trim().toLowerCase().indexOf('#ee') === 0
+                 || root.getAttribute('data-theme') === 'light';
+      var next = isLight ? 'dark' : 'light';
+      root.setAttribute('data-theme', next);
+      try { localStorage.setItem('soc-theme', next); } catch(e){}
+    });
+  })();
+
+  // ---- incident data (demo) ----
+  var INCIDENTS = [
+    {
+      id: "INCIDENT-142175", sev: "critical", status: "Bajo investigación", assignee: "Dominic Theis",
+      title: "Ataque de phishing multi-etapa con volcado de credenciales", icon: "🚨",
+      updated: "07 ago 2025",
+      desc: "Ataque de phishing que derivó en el compromiso de un controlador de dominio. El atacante usó Mimikatz para volcar credenciales y logró movimiento lateral con PsExec. Involucra C&C de BabyShark y múltiples dominios DGA.",
+      score: 99, alerts: 63, highsev: 40, hosts: 5,
+      tactics: [["TA0001","Initial Access"],["TA0002","Execution"],["TA0006","Credential Access"],["TA0008","Lateral Movement"],["TA0011","Command & Control"]],
+      user: "m.rivas (cuenta comprometida)", host: "DC01", hostip: "10.20.4.11",
+      trigger: "Adjunto malicioso ejecutado → macro que descargó el loader de BabyShark.",
+      story: "El usuario abrió un adjunto de phishing; la macro descargó y ejecutó BabyShark, que estableció C&C. Se ejecutó Mimikatz (lsass) para volcar credenciales y con PsExec se propagó a DC01, comprometiendo el dominio. Se observan 5 hosts afectados y balizas hacia dominios DGA.",
+      mitigation: [
+        "Aislar <code>DC01</code> y los 5 hosts afectados (<code>isolate_endpoint</code>).",
+        "Forzar reseteo de credenciales del dominio y de la cuenta <code>m.rivas</code>; revocar tickets Kerberos (KRBTGT x2).",
+        "Bloquear los hashes del loader BabyShark (<code>blocklist_files</code>) y los dominios DGA en Cloudflare/DNS.",
+        "Cazar persistencia con <code>hunt_persistence</code> y revisar tareas programadas."
+      ]
+    },
+    {
+      id: "INCIDENT-142370", sev: "high", status: "Bajo investigación", assignee: "Alex Pekarovsky",
+      title: "Tráfico C&C de BabyShark con acceso a credenciales", icon: "⚠️",
+      updated: "07 ago 2025",
+      desc: "Malware BabyShark detectado con comunicaciones de comando y control. Se observaron múltiples técnicas MITRE: volcado de credenciales, movimiento lateral y evasión de defensas en 2 hosts.",
+      score: 90, alerts: 55, highsev: 37, hosts: 2,
+      tactics: [["TA0002","Execution"],["TA0005","Defense Evasion"],["TA0006","Credential Access"],["TA0008","Lateral Movement"],["TA0011","Command & Control"]],
+      user: "j.soto", host: "FIN-WKS-07", hostip: "10.20.9.34",
+      trigger: "Proceso PowerShell ofuscado con conexión saliente a IP de C&C conocida.",
+      story: "BabyShark se ejecutó vía PowerShell ofuscado y estableció C&C. Intentó deshabilitar AMSI (evasión) y accedió a credenciales en memoria. Se detectó un intento de movimiento lateral hacia un segundo host del segmento financiero.",
+      mitigation: [
+        "Aislar <code>FIN-WKS-07</code> y el segundo host (<code>isolate_endpoint</code>).",
+        "Bloquear la IP/dominio de C&C y poner en cuarentena el binario (<code>quarantine_file</code>).",
+        "Revisar reglas de evasión AMSI y validar el Prevention Profile aplicado.",
+        "Correr <code>hunt_suspicious_powershell</code> en el resto del segmento."
+      ]
+    },
+    {
+      id: "INCIDENT-139300", sev: "high", status: "Sin asignar", assignee: null,
+      title: "SSH Brute Force y detección de malware", icon: "🔓",
+      updated: "07 ago 2025",
+      desc: "Múltiples eventos de seguridad incluyendo intentos de fuerza bruta SSH y detección de malware en 2 hosts. Alto volumen de alertas (75 de severidad alta) que requieren triage inmediato.",
+      score: 90, alerts: 120, highsev: 75, hosts: 2, wildfire: 6,
+      tactics: [["TA0001","Initial Access"],["TA0006","Credential Access"],["TA0002","Execution"]],
+      user: "root (objetivo)", host: "SRV-APP-02", hostip: "10.30.1.18",
+      trigger: "Ráfaga de >4.000 intentos SSH fallidos seguida de un login exitoso.",
+      story: "Un origen externo lanzó fuerza bruta SSH contra SRV-APP-02. Tras el acceso, se descargaron binarios detectados por WildFire (6 veredictos maliciosos). Alto volumen de alertas sugiere actividad automatizada tipo botnet.",
+      mitigation: [
+        "Aislar <code>SRV-APP-02</code> y rotar credenciales/keys SSH.",
+        "Bloquear la IP de origen en el firewall y habilitar fail2ban / rate-limit SSH.",
+        "Poner en cuarentena los 6 binarios con veredicto WildFire malicioso.",
+        "Deshabilitar login SSH por password; forzar solo llaves + MFA. **Asignar analista ya.**"
+      ]
+    },
+    {
+      id: "INCIDENT-142259", sev: "high", status: "Sin asignar", assignee: null,
+      title: "Múltiples hits de threat intelligence en host Ubuntu", icon: "🐧",
+      updated: "07 ago 2025",
+      desc: "Varias coincidencias de inteligencia de amenazas (IOCs) en un host Ubuntu, incluyendo conexiones a infraestructura reputada como maliciosa.",
+      score: 76, alerts: 28, highsev: 12, hosts: 1,
+      tactics: [["TA0011","Command & Control"],["TA0010","Exfiltration"]],
+      user: "svc-deploy", host: "UBU-CI-03", hostip: "10.30.7.5",
+      trigger: "Conexiones salientes a 3 IOCs de IP/dominio con reputación maliciosa.",
+      story: "El host de CI Ubuntu generó conexiones a infraestructura marcada por threat intel. Podría ser una dependencia comprometida en el pipeline o un contenedor con backdoor. Sin exfiltración confirmada aún.",
+      mitigation: [
+        "Correlacionar los IOCs con <code>correlate_ioc</code> y confirmar alcance.",
+        "Aislar <code>UBU-CI-03</code> del egress y revisar imágenes/dependencias del pipeline.",
+        "Bloquear los IOCs y buscar exfiltración con <code>hunt_data_exfiltration</code>."
+      ]
+    },
+    {
+      id: "INCIDENT-142347", sev: "medium", status: "Nuevo", assignee: null,
+      title: "Detección de IOC en controlador de dominio DC01", icon: "🧭",
+      updated: "07 ago 2025",
+      desc: "Detección de un IOC en el controlador de dominio DC01. Aunque es severidad media, involucra infraestructura crítica y debería priorizarse.",
+      score: 43, alerts: 9, highsev: 2, hosts: 1,
+      tactics: [["TA0003","Persistence"]],
+      user: "SYSTEM", host: "DC01", hostip: "10.20.4.11",
+      trigger: "Archivo/hashes coincidente con un IOC en un DC (infraestructura crítica).",
+      story: "Se detectó un IOC en DC01. El score es medio, pero por tratarse de un controlador de dominio el impacto potencial es alto. Requiere validación para descartar relación con INCIDENT-142175.",
+      mitigation: [
+        "Priorizar por criticidad del activo (DC), no por score.",
+        "Verificar si el IOC se relaciona con el phishing de <code>INCIDENT-142175</code>.",
+        "Escanear el DC (<code>scan_endpoint</code>) y revisar integridad de cuentas privilegiadas."
+      ]
+    }
+  ];
+
+  function sevLabel(s){ return {critical:"Crítico",high:"Alto",medium:"Medio",low:"Bajo"}[s]||s; }
+  function scoreClass(n){ return n>=90?"score-crit":n>=70?"score-high":"score-med"; }
+  function esc(t){ return (t==null?"":String(t)).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+  // allow our inline <code> in mitigation/markdown-ish strings
+  function rich(t){ return esc(t).replace(/&lt;code&gt;/g,"<code>").replace(/&lt;\/code&gt;/g,"</code>").replace(/\*\*(.+?)\*\*/g,"<b>$1</b>"); }
+
+  var list = document.getElementById('list');
+  INCIDENTS.forEach(function(x, i){
+    var assignBadge = x.assignee
+      ? '<span class="badge b-assigned">◆ ' + esc(x.assignee) + '</span>'
+      : '<span class="badge b-unassigned">● Sin asignar</span>';
+    var tiles = [
+      ['SCORE', '<span class="v '+scoreClass(x.score)+'">'+x.score+'</span>'],
+      ['ALERTAS', '<span class="v">'+x.alerts+'</span>'],
+      ['SEV. ALTA', '<span class="v">'+x.highsev+'</span>'],
+      [ x.wildfire!=null ? 'WILDFIRE' : 'HOSTS', '<span class="v">'+(x.wildfire!=null?x.wildfire:x.hosts)+'</span>']
+    ].map(function(t){ return '<div class="stat">'+t[1]+'<div class="k">'+t[0]+'</div></div>'; }).join('');
+    var tactics = x.tactics.map(function(t){ return '<span class="tactic"><b>'+t[0]+'</b> · '+esc(t[1])+'</span>'; }).join('');
+    var mit = x.mitigation.map(function(m){ return '<li>'+rich(m)+'</li>'; }).join('');
+
+    var el = document.createElement('article');
+    el.className = 'card sev-' + x.sev;
+    el.setAttribute('data-sev', x.sev);
+    el.setAttribute('data-assigned', x.assignee ? 'yes' : 'no');
+    el.innerHTML =
+      '<div class="card-head">' +
+        '<div class="idrow"><span class="iid">'+esc(x.id)+'</span><span class="updated">Últ. actualización: '+esc(x.updated)+'</span></div>' +
+        '<div class="title"><span class="ic">'+x.icon+'</span><h2>'+esc(x.title)+'</h2></div>' +
+        '<div class="badges">' +
+          '<span class="badge b-'+x.sev+'">'+sevLabel(x.sev)+'</span>' +
+          '<span class="badge b-status">'+esc(x.status)+'</span>' +
+          assignBadge +
+        '</div>' +
+      '</div>' +
+      '<p class="desc">'+esc(x.desc)+'</p>' +
+      '<div class="stats">'+tiles+'</div>' +
+      '<div class="mitre"><div class="h">MITRE ATT&CK — Tácticas</div><div class="tactics">'+tactics+'</div></div>' +
+      '<div class="analysis">' +
+        '<button class="an-head" aria-expanded="'+(i===0?'true':'false')+'" data-an><span class="ai">Análisis de Claude</span> Usuario · Equipo · Causa · Mitigación <span class="caret">▾</span></button>' +
+        '<div class="an-body" '+(i===0?'':'hidden')+'>' +
+          '<div class="an-grid">' +
+            '<div class="fact"><div class="k">👤 Usuario</div><div class="val">'+esc(x.user)+'</div></div>' +
+            '<div class="fact"><div class="k">💻 Equipo / Host</div><div class="val">'+esc(x.host)+' · <code>'+esc(x.hostip)+'</code></div></div>' +
+          '</div>' +
+          '<div class="block"><div class="k">⚡ Qué lo gatilló</div><p>'+esc(x.trigger)+'</p></div>' +
+          '<div class="block"><div class="k">🔎 Qué ha pasado</div><p>'+esc(x.story)+'</p></div>' +
+          '<div class="mit"><div class="k">🛡️ Cómo mitigarlo</div><ol>'+mit+'</ol></div>' +
+        '</div>' +
+      '</div>' +
+      '<div class="actions">' +
+        '<button class="btn btn-primary">🔍 Investigar ahora</button>' +
+        '<button class="btn btn-ghost">📋 Ver timeline</button>' +
+      '</div>';
+    list.appendChild(el);
+  });
+
+  // expand/collapse analysis
+  list.addEventListener('click', function(e){
+    var h = e.target.closest('[data-an]'); if(!h) return;
+    var open = h.getAttribute('aria-expanded') === 'true';
+    h.setAttribute('aria-expanded', String(!open));
+    var body = h.nextElementSibling;
+    if (body) body.hidden = open;
+  });
+
+  // filters
+  var chips = Array.prototype.slice.call(document.querySelectorAll('.chip'));
+  chips.forEach(function(c){
+    c.addEventListener('click', function(){
+      chips.forEach(function(o){ o.setAttribute('aria-pressed','false'); });
+      c.setAttribute('aria-pressed','true');
+      var f = c.getAttribute('data-f');
+      Array.prototype.slice.call(document.querySelectorAll('.card')).forEach(function(card){
+        var show = f==='all' ||
+          (f==='unassigned' ? card.getAttribute('data-assigned')==='no' : card.getAttribute('data-sev')===f);
+        card.classList.toggle('hide', !show);
+      });
+    });
+  });
+</script>
