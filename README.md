@@ -7,33 +7,62 @@ Toda la API REST de Cortex XDR está cubierta a través de la herramienta **`cor
 
 ---
 
-## 🚀 Guía de instalación paso a paso (Claude Code)
-
-Esta es la forma **recomendada y en producción**: el MCP corre como un proceso local de Python (transport `stdio`). No necesitas Docker.
-
-### Requisitos previos
+## ⚡ Requisitos previos
 
 - **Python 3.12 o superior** — comprueba con `python --version`.
 - **Claude Code** instalado (`claude --version`).
 - **Git**.
-- Una **API Key de Cortex XDR** (ver Paso 3).
+- Una **API Key de Cortex XDR** (más abajo se explica cómo obtenerla).
 
----
-
-### Paso 1 — Clonar el repositorio
+## 1. Clona el repositorio
 
 ```bash
 git clone https://github.com/Larkfen/cortex-mcp-clean.git
 cd cortex-mcp-clean
 ```
 
-> Anota la ruta absoluta de la carpeta; la necesitarás en el Paso 4.
-> - Windows: por ejemplo `C:\Users\TuUsuario\cortex-mcp-clean`
-> - Linux/macOS: por ejemplo `/home/tuusuario/cortex-mcp-clean`
+---
+
+## 🤖 2. Instalación automática con Claude Code (recomendado)
+
+La forma más simple: **deja que Claude lo instale y configure por ti mientras miras.**
+Abre **Claude Code dentro de la carpeta del repo** y pégale este prompt — Claude te irá pidiendo lo que necesite (credenciales, etc.):
+
+```text
+Quiero que instales y configures este MCP de Cortex XDR (estás en la raíz del repo) para usarlo desde Claude Code. Haz esto paso a paso:
+
+1. Verifica que tengo Python 3.12+ (python --version). Si no, avísame.
+2. Crea un entorno virtual .venv en esta carpeta e instala las dependencias con "pip install ." (o "poetry install" si detectas Poetry). Detecta si estoy en Windows o Linux/macOS y usa los comandos correctos.
+3. Pídeme estos tres datos de mi tenant de Cortex XDR (no los inventes):
+   - URL base del tenant, formato https://api-<tenant>.xdr.<region>.paloaltonetworks.com
+   - API Key ID (el número de la key)
+   - API Key (el secreto)
+   Recomiéndame usar una key "Advanced" por seguridad; asume Advanced salvo que te diga explícitamente que es Standard.
+4. Registra el servidor MCP llamado "cortex-xdr" con `claude mcp add`, donde:
+   - command = el python del .venv que creaste
+   - args = <ruta-al-repo>/src/main.py
+   - cwd = la raíz del repo
+   - env = CORTEX_MCP_PAPI_URL, CORTEX_MCP_PAPI_AUTH_ID, CORTEX_MCP_PAPI_AUTH_HEADER, CORTEX_MCP_AUTH_TYPE=advanced y MCP_TRANSPORT=stdio.
+   - Si te confirmo que mi key es Standard, usa CORTEX_MCP_AUTH_TYPE=standard.
+5. Verifica con /mcp que "cortex-xdr" quede como connected y lístame las tools disponibles.
+
+Reglas: nunca muestres ni subas mi API Key en texto plano fuera de la configuración local del MCP. Si algo falla, muéstrame el error exacto y cómo corregirlo.
+```
+
+Eso es todo: Claude crea el entorno, te pide las credenciales, registra el MCP y verifica que quede conectado.
+👉 ¿Aún no tienes la API Key de Cortex? Míralo en el [Paso 2 de la instalación manual](#paso-2--obtener-las-credenciales-de-la-api-de-cortex-xdr).
+Si prefieres hacerlo tú a mano, sigue la sección de abajo.
 
 ---
 
-### Paso 2 — Crear el entorno virtual e instalar dependencias
+## 🔧 Instalación manual (paso a paso)
+
+Si prefieres control total, o quieres entender qué hace el prompt, estos son los mismos pasos a mano.
+El MCP corre como un proceso local de Python (transport `stdio`); **no necesitas Docker**.
+
+### Paso 1 — Crear el entorno virtual e instalar dependencias
+
+Un *entorno virtual* (`.venv`) es una carpeta aislada con su propio Python y sus librerías, para que las dependencias de este MCP no choquen con el resto de tu sistema. Se crea una sola vez.
 
 **Windows (PowerShell):**
 ```powershell
@@ -55,11 +84,9 @@ Al terminar, la ruta del intérprete de Python del entorno será:
 - Windows: `<ruta-al-repo>\.venv\Scripts\python.exe`
 - Linux/macOS: `<ruta-al-repo>/.venv/bin/python`
 
-Guarda esa ruta; la usarás en el Paso 4.
+Guarda esa ruta; la usarás en el Paso 3.
 
----
-
-### Paso 3 — Obtener las credenciales de la API de Cortex XDR
+### Paso 2 — Obtener las credenciales de la API de Cortex XDR
 
 En la consola de **Cortex XDR**:
 
@@ -79,7 +106,7 @@ https://api-<tu-tenant>.xdr.<region>.paloaltonetworks.com
 ```
 (el prefijo `api-` es obligatorio; `<region>` suele ser `us`, `eu`, etc.)
 
-En resumen, del Paso 3 sacas **tres datos**:
+En resumen, del Paso 2 sacas **estos datos**:
 
 | Dato | Variable | Ejemplo |
 |------|----------|---------|
@@ -90,9 +117,7 @@ En resumen, del Paso 3 sacas **tres datos**:
 
 > **Recomendación de seguridad:** usa siempre una key **Advanced** y configura `CORTEX_MCP_AUTH_TYPE=advanced`. Solo si usas una key **Standard** cambia este valor a `standard`.
 
----
-
-### Paso 4 — Registrar el MCP en Claude Code
+### Paso 3 — Registrar el MCP en Claude Code
 
 Tienes dos formas equivalentes. Usa **una**.
 
@@ -136,44 +161,15 @@ Añade este bloque a tu configuración MCP (el `.mcp.json` del proyecto, o la co
 > **Windows:** el `command` es `<ruta-al-repo>\.venv\Scripts\python.exe` y las rutas llevan `\\` (doble) o `/`.
 > **Importante:** incluye siempre `cwd` apuntando a la raíz del repo, para que se carguen también las *tools custom* (XQL, block list, etc.).
 
----
-
-### Paso 5 — Verificar que funciona
+### Paso 4 — Verificar que funciona
 
 1. Abre Claude Code en la carpeta del proyecto y ejecuta el comando `/mcp`.
 2. Debe aparecer **`cortex-xdr`** como **connected**.
 3. Prueba pidiéndole algo simple, por ejemplo:
    > "Usa la tool de Cortex para traer la información del tenant (get_tenant_info)."
-4. Si conecta pero no ves las tools *custom*, revisa que el `cwd` apunte a la raíz del repo (Paso 4).
+4. Si conecta pero no ves las tools *custom*, revisa que el `cwd` apunte a la raíz del repo (Paso 3).
 
 En los logs del servidor deberías ver algo como `OpenAPI spec loaded with N path(s)`.
-
----
-
-## 🤖 Prompt para que Claude Code lo instale por ti
-
-¿No quieres hacerlo a mano? Abre **Claude Code dentro de la carpeta del repo** y pégale este prompt. Reemplaza lo que está entre `<...>` si ya lo tienes; si no, Claude te lo irá pidiendo.
-
-```text
-Quiero que instales y configures este MCP de Cortex XDR (estás en la raíz del repo) para usarlo desde Claude Code. Haz esto paso a paso:
-
-1. Verifica que tengo Python 3.12+ (python --version). Si no, avísame.
-2. Crea un entorno virtual .venv en esta carpeta e instala las dependencias con "pip install ." (o "poetry install" si detectas Poetry). Detecta si estoy en Windows o Linux/macOS y usa los comandos correctos.
-3. Pídeme estos tres datos de mi tenant de Cortex XDR (no los inventes):
-   - URL base del tenant, formato https://api-<tenant>.xdr.<region>.paloaltonetworks.com
-   - API Key ID (el número de la key)
-   - API Key (el secreto)
-   Recomiéndame usar una key "Advanced" por seguridad; asume Advanced salvo que te diga explícitamente que es Standard.
-4. Registra el servidor MCP llamado "cortex-xdr" con `claude mcp add`, donde:
-   - command = el python del .venv que creaste
-   - args = <ruta-al-repo>/src/main.py
-   - cwd = la raíz del repo
-   - env = CORTEX_MCP_PAPI_URL, CORTEX_MCP_PAPI_AUTH_ID, CORTEX_MCP_PAPI_AUTH_HEADER, CORTEX_MCP_AUTH_TYPE=advanced y MCP_TRANSPORT=stdio.
-   - Si te confirmo que mi key es Standard, usa CORTEX_MCP_AUTH_TYPE=standard.
-5. Verifica con /mcp que "cortex-xdr" quede como connected y lístame las tools disponibles.
-
-Reglas: nunca muestres ni subas mi API Key en texto plano fuera de la configuración local del MCP. Si algo falla, muéstrame el error exacto y cómo corregirlo.
-```
 
 ---
 
@@ -203,7 +199,7 @@ cp -r .claude/skills/cortex-xdr-triage ~/.claude/skills/
 Copy-Item -Recurse .claude\skills\cortex-xdr-triage "$env:USERPROFILE\.claude\skills\"
 ```
 
-> **Prompt vs Skill:** el [prompt de instalación](#-prompt-para-que-claude-code-lo-instale-por-ti) sirve para **dejar el MCP funcionando**; el **skill** es para **usarlo** (investigar y generar dashboards). Son complementarios.
+> **Instalación automática vs Skill:** la instalación automática (el prompt de arriba) sirve para **dejar el MCP funcionando**; el **skill** es para **usarlo** (investigar y generar dashboards). Son complementarios.
 
 ## 🧰 Tools que expone este MCP
 
@@ -222,7 +218,7 @@ Para que se vean las tools *custom*, el servidor debe arrancarse **desde el dire
 | Síntoma | Causa probable | Solución |
 |--------|----------------|----------|
 | `cortex-xdr` no aparece en `/mcp` | Ruta de `command`/`args` incorrecta | Verifica que apunten al `python` del `.venv` y a `src/main.py` (rutas absolutas). |
-| Conecta pero solo se ven tools builtin | Falta `cwd` | Añade `cwd` con la raíz del repo (Paso 4). |
+| Conecta pero solo se ven tools builtin | Falta `cwd` | Añade `cwd` con la raíz del repo (Paso 3). |
 | Error 401 / 403 en las llamadas | Credenciales o tipo de key mal | Revisa `CORTEX_MCP_PAPI_AUTH_ID` y `..._AUTH_HEADER`, y que `CORTEX_MCP_AUTH_TYPE` coincida con el tipo real de tu key (`advanced` o `standard`). |
 | Error de conexión / DNS | URL base mal formada | Debe empezar con `https://api-` y terminar en `.paloaltonetworks.com`. |
 | `No OpenAPI spec or paths loaded` en logs | No arrancó desde el repo | Revisa `cwd`. |
