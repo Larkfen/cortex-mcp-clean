@@ -1,0 +1,78 @@
+# Cortex XDR - Run (start) XQL query
+# Doc: https://docs-cortex.paloaltonetworks.com/r/Cortex-XDR-Platform-APIs/Run-XQL-query-APIs
+# Devuelve execution_id para luego usar en get_xql_query_results.
+# Si el path o el body no coinciden con tu versión de la API, ajusta según la documentación de tu tenant.
+openapi: 3.0.0
+paths:
+  /public_api/v1/xql_queries/run/:
+    post:
+      summary: Start an XQL query
+      description: |
+        Runs an XQL (XDR Query Language) query. Returns an execution_id that you use
+        with get_xql_query_results to retrieve the results. Queries run asynchronously.
+      operationId: xql_run_query
+      tags:
+        - XQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/XQLRunRequest'
+            example:
+              request_data:
+                query_string: "dataset xdr_data | filter event_type = 'process' | limit 10"
+                time_from: 1704067200000
+                time_to: 1704153600000
+      responses:
+        '200':
+          description: Query started. Response includes execution_id.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      execution_id:
+                        type: string
+                        description: Use this ID in get_xql_query_results to fetch results.
+        '400':
+          description: Bad request (invalid query or parameters).
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden - insufficient permissions (e.g. investigator role for XQL).
+components:
+  schemas:
+    XQLRunRequest:
+      type: object
+      required:
+        - request_data
+      properties:
+        request_data:
+          $ref: '#/components/schemas/XQLRunRequestData'
+
+    XQLRunRequestData:
+      type: object
+      required:
+        - query_string
+      properties:
+        query_string:
+          type: string
+          description: The XQL query (e.g. dataset xdr_data | filter ... | limit 100).
+        time_from:
+          type: integer
+          format: int64
+          description: Start of time range (epoch milliseconds). Optional if time_period used.
+        time_to:
+          type: integer
+          format: int64
+          description: End of time range (epoch milliseconds). Optional if time_period used.
+        time_period:
+          type: object
+          description: 'Relative time range (alternative to time_from/time_to). E.g. {"relative_value": 24, "relative_unit": "hour"}.'
+        tenant_id:
+          type: string
+          description: Optional. For multi-tenant deployments.

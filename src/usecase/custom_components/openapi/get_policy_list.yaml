@@ -1,0 +1,56 @@
+# Cortex XDR - Get Policy List
+# Lista políticas del tenant (Prevention, etc.).
+# Doc: https://docs-cortex.paloaltonetworks.com/r/Cortex-XDR-REST-API/Get-Policy
+# Si la API key devuelve 403, en Cortex revisa: Settings → API Keys → tu key → que el rol incluya permisos de Policy / View policies.
+openapi: 3.0.0
+paths:
+  /public_api/v1/policy/get_policy_list/:
+    post:
+      summary: Get Policy List
+      description: |
+        Retrieves the list of policies configured in the tenant (e.g. Prevention policies).
+        Requires API key with policy read permissions. Returns 403 if the key lacks Policy scope.
+      operationId: get_policy_list
+      tags:
+        - Policy
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GetPolicyListRequest'
+            example:
+              request_data:
+                search_from: 0
+                search_to: 50
+      responses:
+        '200':
+          description: Success. Returns list of policies.
+          content:
+            application/json:
+              schema:
+                type: object
+        '403':
+          description: Forbidden - API key lacks Policy permissions. Check key role in Cortex.
+        '401':
+          description: Unauthorized.
+components:
+  schemas:
+    GetPolicyListRequest:
+      type: object
+      required:
+        - request_data
+      properties:
+        request_data:
+          type: object
+          description: Optional filters. Empty object returns all policies (subject to pagination).
+          properties:
+            search_from:
+              type: integer
+              description: Pagination offset.
+            search_to:
+              type: integer
+              description: Pagination limit (e.g. 50, 100).
+            policy_type:
+              type: string
+              description: Optional filter by policy type (e.g. prevention).

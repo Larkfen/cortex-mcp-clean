@@ -1,0 +1,78 @@
+# Cortex XDR - Get XQL query results
+# Doc: https://docs-cortex.paloaltonetworks.com/r/Cortex-XDR-Platform-APIs/Run-XQL-query-APIs
+# Usa el execution_id devuelto por xql_run_query. Puede ser necesario esperar unos segundos
+# si la consulta sigue en PENDING.
+openapi: 3.0.0
+paths:
+  /public_api/v1/xql_queries/get_results/:
+    post:
+      summary: Get XQL query results
+      description: |
+        Retrieves the results of an XQL query started with xql_run_query.
+        Pass the execution_id returned by that call. If status is PENDING, wait and call again.
+      operationId: xql_get_results
+      tags:
+        - XQL
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/XQLGetResultsRequest'
+            example:
+              request_data:
+                execution_id: "abc123-execution-id-from-run"
+                limit: 1000
+      responses:
+        '200':
+          description: Query results (or status PENDING if not ready yet).
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  reply:
+                    type: object
+                    properties:
+                      status:
+                        type: string
+                        enum: [PENDING, SUCCESS, FAIL]
+                      number_of_results:
+                        type: integer
+                      query_name:
+                        type: string
+                      results:
+                        type: object
+                        description: Data object with result rows (schema depends on the XQL query).
+        '400':
+          description: Bad request (e.g. invalid execution_id).
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden.
+components:
+  schemas:
+    XQLGetResultsRequest:
+      type: object
+      required:
+        - request_data
+      properties:
+        request_data:
+          $ref: '#/components/schemas/XQLGetResultsRequestData'
+
+    XQLGetResultsRequestData:
+      type: object
+      required:
+        - execution_id
+      properties:
+        execution_id:
+          type: string
+          description: The execution ID returned by xql_run_query.
+        limit:
+          type: integer
+          default: 1000
+          description: Maximum number of results to return (max 1000).
+        offset:
+          type: integer
+          default: 0
+          description: Offset for pagination.

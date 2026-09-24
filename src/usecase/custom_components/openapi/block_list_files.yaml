@@ -1,0 +1,122 @@
+# Cortex XDR - Block List / Artifacts (según doc oficial)
+# Doc Block-List-Files: https://docs-cortex.paloaltonetworks.com/r/Cortex-XDR-REST-API/Block-List-Files
+# Endpoint oficial: POST /public_api/v1/block_list/add_files/
+# Body oficial: request_data con file_hash_list (string, comma-separated SHA256).
+# Alternativa en algunos tenants: POST /public_api/v1/artifacts/add_to_block_list/ con request_data.hashes (array).
+openapi: 3.0.0
+paths:
+  /public_api/v1/block_list/add_files/:
+    post:
+      summary: Add Files To Block List (official endpoint)
+      description: |
+        Official Cortex XDR endpoint. Adds SHA256 hashes to the block list.
+        Schema per Palo Alto docs: request_data with file_hash_list (comma-separated string).
+        Hashes must not exist in allow or block lists.
+      operationId: block_list_add_files
+      tags:
+        - Block List
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BlockListRequest'
+            example:
+              request_data:
+                file_hash_list: "sha2561,sha2562,sha2563"
+                comment: "Office 2016 suite - blocked by policy"
+                incident_id: ""
+      responses:
+        '200':
+          description: Success. Files added to block list.
+          content:
+            application/json:
+              schema:
+                type: object
+        '400':
+          description: Bad request (e.g. hash already in list, invalid hash).
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden - insufficient permissions.
+        '500':
+          description: Server error (tenant/backend issue).
+
+  /public_api/v1/artifacts/add_to_block_list/:
+    post:
+      summary: Add Artifacts To Block List (alternative endpoint)
+      description: |
+        Alternative endpoint used by some tenants. Uses request_data with hashes (array of SHA256).
+        Try this if block_list/add_files returns 500/403 and your tenant uses artifacts API.
+      operationId: artifacts_add_to_block_list
+      tags:
+        - Block List
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ArtifactsBlockListRequest'
+            example:
+              request_data:
+                hashes:
+                  - "sha2561"
+                  - "sha2562"
+                comment: "Optional comment"
+      responses:
+        '200':
+          description: Success.
+        '400':
+          description: Bad request.
+        '401':
+          description: Unauthorized.
+        '403':
+          description: Forbidden.
+        '500':
+          description: Server error.
+components:
+  schemas:
+    BlockListRequest:
+      type: object
+      required:
+        - request_data
+      properties:
+        request_data:
+          $ref: '#/components/schemas/BlockListRequestData'
+
+    BlockListRequestData:
+      type: object
+      required:
+        - file_hash_list
+      properties:
+        file_hash_list:
+          type: string
+          description: Comma-separated list of SHA256 hashes. Official schema field for block_list/add_files.
+        comment:
+          type: string
+          description: Optional comment (e.g. reason or ticket).
+        incident_id:
+          type: string
+          description: Optional incident ID; action will appear in Incident View Timeline.
+
+    ArtifactsBlockListRequest:
+      type: object
+      required:
+        - request_data
+      properties:
+        request_data:
+          $ref: '#/components/schemas/ArtifactsBlockListRequestData'
+
+    ArtifactsBlockListRequestData:
+      type: object
+      required:
+        - hashes
+      properties:
+        hashes:
+          type: array
+          items:
+            type: string
+          description: Array of SHA256 hashes. Use for artifacts/add_to_block_list endpoint.
+        comment:
+          type: string
+          description: Optional comment.
