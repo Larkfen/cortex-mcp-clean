@@ -1,135 +1,126 @@
 # cortex-mcp
 
-A Python based integration for Cortex MCP (Model Context Protocol).
+Servidor **MCP (Model Context Protocol)** para **Cortex XDR** de Palo Alto Networks.
+Permite que un asistente como **Claude Code** / **Claude Desktop** consulte y opere tu tenant de Cortex en lenguaje natural: casos, incidentes, alertas, endpoints, vulnerabilidades, XQL, threat hunting, IOCs y políticas.
 
-## Cortex XDR REST API (cobertura completa vía `cortex_send_request`)
+Toda la API REST de Cortex XDR está cubierta a través de la herramienta **`cortex_send_request`** (`path` + `request_data`). El servidor también expone el recurso **`cortex-xdr://reference/rest-api`** con el índice de endpoints oficiales y las reglas de oro de la API.
 
-Los endpoints documentados en [Cortex XDR REST API](https://docs-cortex.paloaltonetworks.com/r/Cortex-XDR-REST-API/Cortex-XDR-REST-API) se invocan con la herramienta **`cortex_send_request`** (`path` + `request_data`), salvo los que requieran `cortex_universal_api` (`use_raw_body`).
+---
 
-El servidor expone el recurso MCP **`cortex-xdr://reference/rest-api`** (markdown en `src/entities/resources/cortex_rest_api_reference.md`): índice de enlaces oficiales por módulo (Audit, Auth, Datasets, Endpoints, Incidents, Response, Scripts, Syslog, System, XQL) y reglas de oro.
+## 🚀 Guía de instalación paso a paso (Claude Code)
 
-**`cortex_xql_query`** prueba automáticamente `xql/start_xql_query` y `xql_queries/run` según lo que acepte el tenant.
+Esta es la forma **recomendada y en producción**: el MCP corre como un proceso local de Python (transport `stdio`). No necesitas Docker.
 
-## Getting Started
+### Requisitos previos
 
-### Prerequisites
+- **Python 3.12 o superior** — comprueba con `python --version`.
+- **Claude Code** instalado (`claude --version`).
+- **Git**.
+- Una **API Key de Cortex XDR** (ver Paso 3).
 
-- Python 3.13 or higher / container environment
-- Cortex API credentials (Standard API key and API key ID)
+---
 
-### Installation
-
-#### Option 1: Using Docker
-
-Create a `.env` file with the following environment variables:
-```
-CORTEX_MCP_PAPI_URL=https://<your-tenant-url>,
-CORTEX_MCP_PAPI_AUTH_HEADER=<your_api_key>, 
-CORTEX_MCP_PAPI_AUTH_ID=<your_api_key_id>,
-(optional - defaults to stdio)MCP_TRANSPORT=stdio/streamable-http
-(optional, for streamable-http)MCP_HOST=0.0.0.0
-(optional, for streamable-http)MCP_PORT=8080
-(optional, for streamable-http)MCP_PATH=/api/v1/stream/mcp
-```
-
-Build the Docker container:
+### Paso 1 — Clonar el repositorio
 
 ```bash
-docker build -t cortex-mcp .
+git clone https://github.com/Larkfen/cortex-mcp-clean.git
+cd cortex-mcp-clean
 ```
 
-#### Option 2: Locally Using Poetry (Virtual Environment)
+> Anota la ruta absoluta de la carpeta; la necesitarás en el Paso 4.
+> - Windows: por ejemplo `C:\Users\TuUsuario\cortex-mcp-clean`
+> - Linux/macOS: por ejemplo `/home/tuusuario/cortex-mcp-clean`
 
-1. Install Poetry if you haven't already:
+---
+
+### Paso 2 — Crear el entorno virtual e instalar dependencias
+
+**Windows (PowerShell):**
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install .
+```
+
+**Linux / macOS:**
 ```bash
-curl -sSL https://install.python-poetry.org | python3 -
+python3 -m venv .venv
+source .venv/bin/activate
+pip install .
 ```
 
-2. Create and activate a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate
+> Alternativa con Poetry (si lo usas): `poetry install` en vez de `pip install .`.
+
+Al terminar, la ruta del intérprete de Python del entorno será:
+- Windows: `<ruta-al-repo>\.venv\Scripts\python.exe`
+- Linux/macOS: `<ruta-al-repo>/.venv/bin/python`
+
+Guarda esa ruta; la usarás en el Paso 4.
+
+---
+
+### Paso 3 — Obtener las credenciales de la API de Cortex XDR
+
+En la consola de **Cortex XDR**:
+
+1. Ve al menú de configuración: **Settings (⚙️) → Configurations → Integrations → API Keys**.
+2. Haz clic en **+ New Key**.
+3. Elige el tipo de key:
+   - **Standard** (recomendado para empezar), o
+   - **Advanced** (requiere un paso extra de configuración, ver nota abajo).
+4. Asigna un **Role** con los permisos que necesites y guarda.
+5. Cortex te mostrará **la API Key (secreto)** — cópiala ahora, **solo se muestra una vez**.
+6. En la tabla de API Keys, anota el **ID** de la key (un número, p. ej. `1`, `6`, …).
+
+También necesitas la **URL base (FQDN) de tu tenant**. La encuentras en el botón **"Copy examples"** al crear la key, o en la misma página de API Keys. Tiene esta forma:
+
 ```
-
-3. Install project dependencies:
-```bash
-poetry install
+https://api-<tu-tenant>.xdr.<region>.paloaltonetworks.com
 ```
+(el prefijo `api-` es obligatorio; `<region>` suele ser `us`, `eu`, etc.)
 
-### Running The MCP Server
+En resumen, del Paso 3 sacas **tres datos**:
 
-#### CLI
-- See the [CLI](src/README.md) readme
+| Dato | Variable | Ejemplo |
+|------|----------|---------|
+| URL base del tenant | `CORTEX_MCP_PAPI_URL` | `https://api-<tu-tenant>.xdr.us.paloaltonetworks.com` |
+| ID de la API Key | `CORTEX_MCP_PAPI_AUTH_ID` | `1` |
+| API Key (secreto) | `CORTEX_MCP_PAPI_AUTH_HEADER` | `xxxxxxxx…` |
 
-#### Claude Desktop
+> **Nota (Advanced API keys):** si creaste una key **Advanced**, añade también la variable `CORTEX_MCP_AUTH_TYPE=advanced`. Con keys **Standard** no hace falta (el valor por defecto es `standard`).
 
--  Open the Claude configuration file (accessible from the `Developer` pane in Claude Desktop settings) and add the following MCP server configuration:
+---
 
+### Paso 4 — Registrar el MCP en Claude Code
 
-Docker Container:
-```json
-{
-  "mcpServers": {
-    "Cortex MCP Server": {
-      "command": "docker",
-      "args": [
-        "run",
-        "--env-file",
-        "/path/to/.env",
-        "-i",
-        "--rm",
-        "cortex-mcp"
-      ]
-    }
-  }
-}
-```
+Tienes dos formas equivalentes. Usa **una**.
 
+#### Opción A — Comando `claude mcp add` (rápido)
 
-Local (the mcp server would have to be [installed locally beforehand](#option-2-locally-using-poetry-virtual-environment)):
-```json
-{
-  "mcpServers": {
-    "Cortex MCP Server": {
-      "command": "<path to cortex-mcp virtual environment>/bin/python",
-      "args": [
-        "<path to cortex-mcp>/src/main.py"
-      ],
-       "env": {
-          "CORTEX_MCP_PAPI_URL": "https://<your-tenant-url>",
-          "CORTEX_MCP_PAPI_AUTH_HEADER": "<your_api_key>", 
-          "CORTEX_MCP_PAPI_AUTH_ID": "<your_api_key_id>",
-          "MCP_TRANSPORT": "<stdio/streamable-http>"
-   }
-    }
-  }
-}
-```
-
-#### Claude Code
-
-Regístralo con el CLI de Claude Code (ejecuta el comando desde la raíz de este repo):
+Ejecuta esto **reemplazando** las rutas y credenciales por las tuyas. En Windows usa `\` en las rutas.
 
 ```bash
 claude mcp add cortex-xdr \
-  --env CORTEX_MCP_PAPI_URL=https://api-<tu-tenant>.xdr.<region>.paloaltonetworks.com \
+  --env CORTEX_MCP_PAPI_URL=https://api-<tu-tenant>.xdr.us.paloaltonetworks.com \
   --env CORTEX_MCP_PAPI_AUTH_ID=<tu_api_key_id> \
   --env CORTEX_MCP_PAPI_AUTH_HEADER=<tu_api_key> \
   --env MCP_TRANSPORT=stdio \
-  -- <ruta-al-venv>/bin/python <ruta-a-este-repo>/src/main.py
+  -- <ruta-al-repo>/.venv/bin/python <ruta-al-repo>/src/main.py
 ```
 
-O de forma equivalente, añade este bloque a tu configuración de MCP (`.mcp.json` del proyecto, o la config de usuario de Claude Code):
+#### Opción B — Editar el archivo de configuración MCP
+
+Añade este bloque a tu configuración MCP (el `.mcp.json` del proyecto, o la config de usuario de Claude Code):
 
 ```json
 {
   "mcpServers": {
     "cortex-xdr": {
-      "command": "<ruta-al-venv>/bin/python",
-      "args": ["<ruta-a-este-repo>/src/main.py"],
-      "cwd": "<ruta-a-este-repo>",
+      "command": "<ruta-al-repo>/.venv/bin/python",
+      "args": ["<ruta-al-repo>/src/main.py"],
+      "cwd": "<ruta-al-repo>",
       "env": {
-        "CORTEX_MCP_PAPI_URL": "https://api-<tu-tenant>.xdr.<region>.paloaltonetworks.com",
+        "CORTEX_MCP_PAPI_URL": "https://api-<tu-tenant>.xdr.us.paloaltonetworks.com",
         "CORTEX_MCP_PAPI_AUTH_ID": "<tu_api_key_id>",
         "CORTEX_MCP_PAPI_AUTH_HEADER": "<tu_api_key>",
         "MCP_TRANSPORT": "stdio"
@@ -139,69 +130,124 @@ O de forma equivalente, añade este bloque a tu configuración de MCP (`.mcp.jso
 }
 ```
 
-> En Windows usa rutas con `\\` o con `/`, y el ejecutable `.../Scripts/python.exe` del venv.
+> **Windows:** el `command` es `<ruta-al-repo>\.venv\Scripts\python.exe` y las rutas llevan `\\` (doble) o `/`.
+> **Importante:** incluye siempre `cwd` apuntando a la raíz del repo, para que se carguen también las *tools custom* (XQL, block list, etc.).
 
-### Tools que expone este MCP
+---
 
-El servidor une las specs OpenAPI de:
+### Paso 5 — Verificar que funciona
 
-- **builtin_components/openapi/** — herramientas que vienen con el paquete (p. ej. get_issues, get_cases, get_assets, get_filtered_endpoints, get_vulnerabilities, etc.).
-- **custom_components/openapi/** — herramientas añadidas en este repo: `block_list_add_files`, `xql_run_query`, `xql_get_results`, `get_policy_list`.
-- **remote_components/openapi/** — componentes descargados con el comando de actualización del CLI (opcional).
+1. Abre Claude Code en la carpeta del proyecto y ejecuta el comando `/mcp`.
+2. Debe aparecer **`cortex-xdr`** como **connected**.
+3. Prueba pidiéndole algo simple, por ejemplo:
+   > "Usa la tool de Cortex para traer la información del tenant (get_tenant_info)."
+4. Si conecta pero no ves las tools *custom*, revisa que el `cwd` apunte a la raíz del repo (Paso 4).
 
-Para que el cliente MCP (Claude Code, Claude Desktop, etc.) vea las tools custom, el servidor debe arrancarse **desde el directorio de este proyecto** (donde existe `src/usecase/custom_components/openapi/`) — por eso el bloque de configuración incluye `cwd`. Si usas la ruta al `main.py` o al venv de este repo, las tools custom se cargan. Si el cliente arranca un paquete instalado globalmente en otro path, puede que solo vea las builtin.
+En los logs del servidor deberías ver algo como `OpenAPI spec loaded with N path(s)`.
 
-En los logs del servidor deberías ver algo como: `OpenAPI spec loaded with N path(s)`; si N es bajo o ves el warning "No OpenAPI spec or paths loaded", revisa que existan las carpetas anteriores.
+---
 
-## Development
+## 🤖 Prompt para que Claude Code lo instale por ti
 
-### Project Structure
+¿No quieres hacerlo a mano? Abre **Claude Code dentro de la carpeta del repo** y pégale este prompt. Reemplaza lo que está entre `<...>` si ya lo tienes; si no, Claude te lo irá pidiendo.
+
+```text
+Quiero que instales y configures este MCP de Cortex XDR (estás en la raíz del repo) para usarlo desde Claude Code. Haz esto paso a paso:
+
+1. Verifica que tengo Python 3.12+ (python --version). Si no, avísame.
+2. Crea un entorno virtual .venv en esta carpeta e instala las dependencias con "pip install ." (o "poetry install" si detectas Poetry). Detecta si estoy en Windows o Linux/macOS y usa los comandos correctos.
+3. Pídeme estos tres datos de mi tenant de Cortex XDR (no los inventes):
+   - URL base del tenant, formato https://api-<tenant>.xdr.<region>.paloaltonetworks.com
+   - API Key ID (el número de la key)
+   - API Key (el secreto)
+   Y pregúntame si mi key es "Standard" o "Advanced".
+4. Registra el servidor MCP llamado "cortex-xdr" con `claude mcp add`, donde:
+   - command = el python del .venv que creaste
+   - args = <ruta-al-repo>/src/main.py
+   - cwd = la raíz del repo
+   - env = CORTEX_MCP_PAPI_URL, CORTEX_MCP_PAPI_AUTH_ID, CORTEX_MCP_PAPI_AUTH_HEADER y MCP_TRANSPORT=stdio.
+   - Si mi key es Advanced, añade además CORTEX_MCP_AUTH_TYPE=advanced.
+5. Verifica con /mcp que "cortex-xdr" quede como connected y lístame las tools disponibles.
+
+Reglas: nunca muestres ni subas mi API Key en texto plano fuera de la configuración local del MCP. Si algo falla, muéstrame el error exacto y cómo corregirlo.
+```
+
+---
+
+## 🧰 Tools que expone este MCP
+
+El servidor une automáticamente las especificaciones OpenAPI de:
+
+- **builtin_components/** — herramientas base: `get_issues`, `get_cases`, `get_assets`, `get_filtered_endpoints`, `get_vulnerabilities`, `get_tenant_info`, etc.
+- **custom_components/** — herramientas añadidas en este repo: `block_list_add_files`, `xql_run_query`, `xql_get_results`, `get_policy_list`, además de casos/incidentes/alertas, endpoint actions, threat hunting, IOCs, wildfire y políticas.
+- **remote_components/** — componentes descargados con el comando de actualización del CLI (opcional).
+
+Para que se vean las tools *custom*, el servidor debe arrancarse **desde el directorio del proyecto** (por eso el `cwd` en la config).
+
+---
+
+## 🩺 Solución de problemas
+
+| Síntoma | Causa probable | Solución |
+|--------|----------------|----------|
+| `cortex-xdr` no aparece en `/mcp` | Ruta de `command`/`args` incorrecta | Verifica que apunten al `python` del `.venv` y a `src/main.py` (rutas absolutas). |
+| Conecta pero solo se ven tools builtin | Falta `cwd` | Añade `cwd` con la raíz del repo (Paso 4). |
+| Error 401 / 403 en las llamadas | Credenciales o tipo de key | Revisa `CORTEX_MCP_PAPI_AUTH_ID` y `..._AUTH_HEADER`; si la key es Advanced, añade `CORTEX_MCP_AUTH_TYPE=advanced`. |
+| Error de conexión / DNS | URL base mal formada | Debe empezar con `https://api-` y terminar en `.paloaltonetworks.com`. |
+| `No OpenAPI spec or paths loaded` en logs | No arrancó desde el repo | Revisa `cwd`. |
+
+---
+
+## 🛠️ Desarrollo
+
+### Estructura del proyecto
 ```
 src/
-├── cli.py                           # Command line interface
-├── main.py                          # Main application entry point
-├── config/                          # Configuration modules
-├── entities/                        # Data models and entity classes
-├── pkg/                             # Internal package utilities and helpers
-├── service/                         # Service layer implementations
-└── usecase/                         # Business logic and use cases
-    ├── builtin_components/          # MCP components that come with the package
-    │   ├── openapi/
-    │   └── python modules
-    ├── custom_components/           # MCP components that are user-defined 
-    │   ├── openapi/
-    │   └── python modules
-    └── remote_components/           # MCP components that are distributed and updated by Cortex** 
-        ├── openapi/
-        └── python modules
-
-tests/
-├── e2e/                             # End-to-end tests
-└── individual test files
+├── cli.py                  # Interfaz de línea de comandos
+├── main.py                 # Punto de entrada del servidor MCP
+├── config/                 # Configuración
+├── entities/               # Modelos de datos y recursos
+├── pkg/                    # Utilidades internas y cliente PAPI
+├── service/                # Capa de servicio (servidor MCP)
+└── usecase/                # Lógica de negocio (tools)
+    ├── builtin_components/ # Tools base (con OpenAPI)
+    ├── custom_components/  # Tools añadidas en este repo
+    └── remote_components/  # Tools distribuidas/actualizadas por Cortex
 ```
-** When the user runs the [CLI](src/README.md) update command, any new or updated components provided by Cortex are automatically downloaded into the remote_components folder.  
-During each update, the folder is fully replaced and all existing contents are recreated.
 
-Do not add custom tools to this directory, as it is managed entirely by Cortex and will be overwritten on every update.
-
-### Adding custom MCP components
-
-To add custom MCP components, follow this [guide](src/usecase/README.md).
-
-### Coding
-
-Run tests:
+### Comandos
 ```bash
-poetry run pytest
+poetry run pytest          # tests
+poetry run black .         # formato
+poetry run isort .         # orden de imports
 ```
 
-Format code:
+Para depurar un MCP, lo mejor es el [MCP inspector](https://github.com/modelcontextprotocol/inspector).
+
+---
+
+## 🐳 Docker (opcional)
+
+Solo si prefieres contenedor en vez del método local. Crea un `.env` (copia `.env.example`) y:
+
 ```bash
-poetry run black .
-poetry run isort .
+docker build -t cortex-mcp .
 ```
 
-Debug:
-The best way to debug MCP servers is with the [MCP inspector](https://github.com/modelcontextprotocol/inspector).
-Aside from that, end-to-end tests can be run and added under `tests/e2e`.
+Registro en el cliente MCP:
+```json
+{
+  "mcpServers": {
+    "cortex-xdr": {
+      "command": "docker",
+      "args": ["run", "--env-file", "/ruta/a/.env", "-i", "--rm", "cortex-mcp"]
+    }
+  }
+}
+```
 
+---
+
+## 📄 Licencia
+
+Ver [LICENSE](LICENSE). Este proyecto se basa en la implementación oficial de **Palo Alto Networks**; revisa los términos antes de redistribuir.
